@@ -11,28 +11,73 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+const recipes = [
+  {
+    id: "r1",
+    title: "Roasted Tomato Pasta",
+    coverUrl: null,
+    coverPublicId: null,
+  },
+  {
+    id: "r2",
+    title: "Lemon Rice Bowl",
+    coverUrl: null,
+    coverPublicId: null,
+  },
+];
+
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", app: "RecipeShelf" });
 });
 
-app.post("/api/upload", upload.single("avatar"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "Avatar file is required" });
+app.get("/api/recipes", (req, res) => {
+  res.json({ recipes });
+});
+
+app.get("/api/recipes/:recipeId", (req, res) => {
+  const recipe = recipes.find((item) => item.id === req.params.recipeId);
+
+  if (!recipe) {
+    return res.status(404).json({ message: "Recipe not found" });
   }
 
-  const url = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-  return res.status(201).json({ url });
+  return res.json({ recipe });
 });
+
+app.post(
+  "/api/recipes/:recipeId/cover",
+  upload.single("image"),
+  (req, res) => {
+    const recipe = recipes.find((item) => item.id === req.params.recipeId);
+
+    if (!recipe) {
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Cover image is required" });
+    }
+
+    const localUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    recipe.coverUrl = localUrl;
+
+    return res.status(201).json({
+      recipeId: recipe.id,
+      coverUrl: localUrl,
+    });
+  }
+);
 
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ message: "Avatar must be 5 MB or smaller" });
+      return res.status(413).json({ message: "Cover image is too large" });
     }
+
     return res.status(400).json({ message: error.message });
   }
 
-  if (error.message === "Only JPG and PNG images are allowed") {
+  if (error.message === "Unsupported file") {
     return res.status(400).json({ message: error.message });
   }
 
@@ -41,5 +86,5 @@ app.use((error, req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Threadbase upload API running on http://localhost:${port}`);
+  console.log(`RecipeShelf API running on http://localhost:${port}`);
 });
